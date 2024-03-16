@@ -25,7 +25,9 @@ class Dataset(torch.utils.data.Dataset):
         with open('dataset.pkl', 'rb') as f:
             dataset = pickle.load(f)
         self.dataset = dataset[300:]
-        assert len(self.dataset) == 1425
+        # Remove problematic images (unknown reason)
+        self.dataset = list(filter(lambda x: x[0] != '000000363942.jpg', self.dataset))
+        assert len(self.dataset) == 1424
         # self.preprocess = ResNet50_Weights.DEFAULT.transforms()
 
     def __len__(self):
@@ -35,13 +37,9 @@ class Dataset(torch.utils.data.Dataset):
         example = self.dataset[idx]
         path, img, mask = example
         img = img_as_float(img)
-        try:
-            img = torch.from_numpy(img).permute(2, 0, 1)  # C, H, W
-        except:
-            print(path)
-            assert False
+        img = torch.from_numpy(img).permute(2, 0, 1)  # C, H, W
         mask = torch.from_numpy(mask)  # H, W
-        return img.float(), mask
+        return (path, img.float()), mask
 
 
 class ContrastiveLoss(nn.Module):
@@ -110,15 +108,25 @@ model = Model().to(device)
 loss_fn = ContrastiveLoss()  # nn.CrossEntropyLoss()
 optimizer = optim.SGD(model.parameters(), lr=0.0001)
 
-for epoch in range(3):
+for epoch in range(20):
+    train_loss = 0
     print(f'STARTING EPOCH {epoch+1}')
-    for inputs, labels in tqdm(dataloader):
+    pbar = tqdm(dataloader)
+    for i, (inputs, labels) in enumerate(pbar):
+        name = inputs[0]
+        inputs = inputs[1]
         inputs = inputs.to(device)
         labels = labels.to(device)
         optimizer.zero_grad()
         outputs = model(inputs)
         loss = loss_fn(outputs, labels)
+        if loss.isnan():
+            print(name)
+            assert False
+        train_loss += loss.detach().item()
         loss.backward()
         optimizer.step()
+        pbar.set_postfix_str(f'Train loss: {loss.detach().item()}')
+    print(f'EPOCH TRAINING LOSS {train_loss / len(dataset)}')
 
 torch.save(model.state_dict(), 'contrastive_weights.pt')
