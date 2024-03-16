@@ -27,7 +27,7 @@ def get_majority_person_images_and_masks(coco_dataset, img_dir):
         img = np.array(Image.open(os.path.join(img_dir, img_dict['file_name'])))
         mask = coco_dataset.annToMask(annot_dict)
 
-        out.append((img, mask))
+        out.append((img_dict['file_name'], img, mask))
     
     return out
 
