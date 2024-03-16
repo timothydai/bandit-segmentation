@@ -25,7 +25,7 @@ class Dataset(torch.utils.data.Dataset):
         with open('dataset.pkl', 'rb') as f:
             dataset = pickle.load(f)
         self.dataset = dataset[300:]
-        assert len(self.dataset) == 1431
+        assert len(self.dataset) == 1425
         # self.preprocess = ResNet50_Weights.DEFAULT.transforms()
 
     def __len__(self):
