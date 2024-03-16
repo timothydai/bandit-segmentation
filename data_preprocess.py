@@ -27,10 +27,14 @@ def get_majority_person_images_and_masks(coco_dataset, img_dir):
         img = np.array(Image.open(os.path.join(img_dir, img_dict['file_name'])))
         mask = coco_dataset.annToMask(annot_dict)
 
+        if img.ndim < 3:
+            continue
+
         out.append((img_dict['file_name'], img, mask))
     
     return out
 
 dataset = get_majority_person_images_and_masks(train, 'coco/images/train2017') + get_majority_person_images_and_masks(val, 'coco/images/val2017')
+print('Number of examples:', len(dataset))
 with open('dataset.pkl', 'wb') as f:
     pickle.dump(dataset, f)
