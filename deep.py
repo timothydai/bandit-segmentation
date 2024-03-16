@@ -8,6 +8,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision.models import ResNet50_Weights
 
+from viz import *
+
 
 if torch.backends.mps.is_available():
     print('USING MPS')
@@ -129,4 +131,5 @@ for epoch in range(20):
         pbar.set_postfix_str(f'Train loss: {loss.detach().item()}')
     print(f'EPOCH TRAINING LOSS {train_loss / len(dataset)}')
 
-torch.save(model.state_dict(), 'contrastive_weights.pt')
+    save_tcnb_graph(model, f'contrastive_save/tcnb_epoch_{epoch}.png', epoch)
+    torch.save(model.state_dict(), f'contrastive_save/contrastive_weights_epoch_{epoch}.pt')
