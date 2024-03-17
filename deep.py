@@ -34,7 +34,7 @@ class Dataset(torch.utils.data.Dataset):
         # self.preprocess = ResNet50_Weights.DEFAULT.transforms()
 
     def __len__(self):
-        return len(self.dataset)
+        return 1  # len(self.dataset)
 
     def __getitem__(self, idx):
         example = self.dataset[idx]
@@ -110,7 +110,7 @@ if __name__ == '__main__':
     optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
     best_val_loss = np.inf
-    for epoch in range(100):
+    for epoch in range(125):
         train_loss = 0
         print(f'STARTING EPOCH {epoch+1}')
         train_pbar = tqdm(train_dataloader)
@@ -132,7 +132,7 @@ if __name__ == '__main__':
             optimizer.step()
             train_pbar.set_postfix_str(f'Train loss: {loss.detach().item()}')
         print(f'EPOCH TRAINING LOSS {train_loss / len(train_dataset)},')
-        torch.save(model.state_dict(), f'contrastive_save/contrastive_weights_epoch_{epoch}.pt')
+        #torch.save(model.state_dict(), f'contrastive_save/contrastive_weights_epoch_{epoch}.pt')
 
         val_loss = 0
         with torch.no_grad():
@@ -149,3 +149,4 @@ if __name__ == '__main__':
         if val_loss < best_val_loss:
             torch.save(model.state_dict(), f'contrastive_save/contrastive_weights_best.pt')
             best_val_loss = val_loss
+    torch.save(model.state_dict(), f'contrastive_save/contrastive_weights_last.pt')
