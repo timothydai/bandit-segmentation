@@ -35,7 +35,7 @@ def save_tcnb_graph(model, save_path, epoch):
         dataset = pickle.load(f)
     model = model.to(device)
     
-    path, img, mask = dataset[4]
+    path, img, mask = dataset[150]
 
     img = img_as_float(img)
     img = torch.from_numpy(img).permute(2, 0, 1)  # C, H, W
