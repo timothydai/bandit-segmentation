@@ -34,7 +34,7 @@ class Dataset(torch.utils.data.Dataset):
         # self.preprocess = ResNet50_Weights.DEFAULT.transforms()
 
     def __len__(self):
-        return 1  # len(self.dataset)
+        return len(self.dataset)
 
     def __getitem__(self, idx):
         example = self.dataset[idx]
@@ -79,6 +79,35 @@ class ContrastiveLoss(nn.Module):
         )
         return loss
 
+class BigModel(nn.Module):
+    def __init__(self):
+        super(Model, self).__init__()
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=3)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.conv2 = nn.Conv2d(64, 128, kernel_size=3)
+        self.bn2 = nn.BatchNorm2d(128)
+        self.conv3 = nn.Conv2d(128, 256, kernel_size=3)
+        self.bn3 = nn.BatchNorm2d(256)
+        self.conv4 = nn.Conv2d(256, 512, kernel_size=3)
+        self.bn4 = nn.BatchNorm2d(512)
+        self.deconv1 = nn.ConvTranspose2d(512, 256, kernel_size=3)
+        self.bn5 = nn.BatchNorm2d(256)
+        self.deconv2 = nn.ConvTranspose2d(256, 128, kernel_size=3)
+        self.bn6 = nn.BatchNorm2d(128)
+        self.deconv3 = nn.ConvTranspose2d(128, 64, kernel_size=3)
+        self.bn7 = nn.BatchNorm2d(64)
+        self.deconv4 = nn.ConvTranspose2d(64, 64, kernel_size=3)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.relu(x)
+        x = self.conv2(x)
+        x = self.relu(x)
+        x = self.deconv1(x)
+        x = self.relu(x)
+        x = self.deconv2(x)
+        return x
 
 class Model(nn.Module):
     def __init__(self):
@@ -110,7 +139,8 @@ if __name__ == '__main__':
     optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
     best_val_loss = np.inf
-    for epoch in range(125):
+    batch_size = 8
+    for epoch in range(100):
         train_loss = 0
         print(f'STARTING EPOCH {epoch+1}')
         train_pbar = tqdm(train_dataloader)
@@ -121,15 +151,17 @@ if __name__ == '__main__':
             inputs = inputs[1]
             inputs = inputs.to(device)
             labels = labels.to(device)
-            optimizer.zero_grad()
+            #optimizer.zero_grad()
             outputs = model(inputs)
             loss = loss_fn(outputs, labels)
             if loss.isnan():
                 print(name)
                 assert False
-            train_loss += loss.detach().item()
             loss.backward()
-            optimizer.step()
+            train_loss += loss.detach().item()
+            if i != 0 and i % batch_size == 0:
+                optimizer.step()
+                optimizer.zero_grad()
             train_pbar.set_postfix_str(f'Train loss: {loss.detach().item()}')
         print(f'EPOCH TRAINING LOSS {train_loss / len(train_dataset)},')
         #torch.save(model.state_dict(), f'contrastive_save/contrastive_weights_epoch_{epoch}.pt')
