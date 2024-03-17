@@ -131,5 +131,5 @@ for epoch in range(20):
         pbar.set_postfix_str(f'Train loss: {loss.detach().item()}')
     print(f'EPOCH TRAINING LOSS {train_loss / len(dataset)}')
 
-    save_tcnb_graph(model, f'contrastive_save/tcnb_epoch_{epoch}.png', epoch)
+    #save_tcnb_graph(model, f'contrastive_save/tcnb_epoch_{epoch}.png', epoch)
     torch.save(model.state_dict(), f'contrastive_save/contrastive_weights_epoch_{epoch}.pt')
