@@ -5,6 +5,7 @@ import numpy as np
 from skimage.util import img_as_float
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 from torchvision.models import ResNet50_Weights
 
@@ -145,13 +146,14 @@ if __name__ == '__main__':
     optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
     best_val_loss = np.inf
-    batch_size = 8
-    for epoch in range(100):
+    batch_size = 4
+    for epoch in range(30):
         train_loss = 0
         print(f'STARTING EPOCH {epoch+1}')
         train_pbar = tqdm(train_dataloader)
         val_pbar = tqdm(val_dataloader)
         model.train()
+        optimizer.zero_grad()
         for i, (inputs, labels) in enumerate(train_pbar):
             name = inputs[0]
             inputs = inputs[1]
@@ -163,7 +165,7 @@ if __name__ == '__main__':
             if loss.isnan():
                 print(name)
                 assert False
-            loss.backward()
+            (loss / batch_size).backward()
             train_loss += loss.detach().item()
             if i != 0 and i % batch_size == 0:
                 optimizer.step()
