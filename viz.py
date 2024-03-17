@@ -32,9 +32,6 @@ def save_tcnb_graph(model, save_path, epoch):
     with open('dataset.pkl', 'rb') as f:
         dataset = pickle.load(f)
     
-    plt.rcParams.update({
-        "text.usetex": True,
-    })
     path, img, mask = dataset[4]
 
     img = img_as_float(img)
@@ -51,15 +48,15 @@ def save_tcnb_graph(model, save_path, epoch):
     neg = embeddings[..., y==0]
     
     num_pts_per_class = 1500
-    random_is = np.random.choice(embeddings.shape[1], num_pts_per_class)
+    random_is = np.random.choice(min(pos.shape[-1], neg.shape[-1]), num_pts_per_class)
 
     # pca = PCA(n_components=8)
-    pos = pos.permute(1, 0)
-    neg = neg.permute(1, 0)
-    to_plot = torch.concat([pos[random_is], neg[random_is]], axis=0)
+    pos = pos.permute(1, 0).cpu().detach().numpy()
+    neg = neg.permute(1, 0).cpu().detach().numpy()
+    to_plot = np.concatenate([pos[random_is], neg[random_is]], axis=0)
 
     tsne = TSNE(n_components=2, verbose=1, perplexity=50)
-    tsne_results = tsne.fit_transform(to_plot.cpu().detach().numpy())
+    tsne_results = tsne.fit_transform(to_plot)
 
     colors = plt.get_cmap('viridis')(np.linspace(0, 1, 10))
     plt.figure(figsize=(6, 4))

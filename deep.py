@@ -33,7 +33,7 @@ class Dataset(torch.utils.data.Dataset):
         # self.preprocess = ResNet50_Weights.DEFAULT.transforms()
 
     def __len__(self):
-        return 1  # len(self.dataset)
+        return len(self.dataset)
 
     def __getitem__(self, idx):
         example = self.dataset[idx]
@@ -99,7 +99,7 @@ class Model(nn.Module):
         return x
 
 dataset = Dataset()
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
+dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
 model = Model().to(device)
 loss_fn = ContrastiveLoss()  # nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
