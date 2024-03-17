@@ -61,3 +61,4 @@ def save_tcnb_graph(model, save_path, epoch):
     plt.title(f'Epoch {epoch + 1}')
     plt.tight_layout()
     plt.savefig(save_path, dpi=300)
+

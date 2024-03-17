@@ -33,7 +33,7 @@ class Dataset(torch.utils.data.Dataset):
         # self.preprocess = ResNet50_Weights.DEFAULT.transforms()
 
     def __len__(self):
-        return len(self.dataset)
+        return 1  # len(self.dataset)
 
     def __getitem__(self, idx):
         example = self.dataset[idx]
@@ -105,12 +105,12 @@ class Model(nn.Module):
         return x
 
 dataset = Dataset()
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
+dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
 model = Model().to(device)
 loss_fn = ContrastiveLoss()  # nn.CrossEntropyLoss()
-optimizer = optim.SGD(model.parameters(), lr=0.0001)
+optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-for epoch in range(20):
+for epoch in range(300):
     train_loss = 0
     print(f'STARTING EPOCH {epoch+1}')
     pbar = tqdm(dataloader)
@@ -129,7 +129,7 @@ for epoch in range(20):
         loss.backward()
         optimizer.step()
         pbar.set_postfix_str(f'Train loss: {loss.detach().item()}')
-    print(f'EPOCH TRAINING LOSS {train_loss / len(dataset)}')
+    #print(f'EPOCH TRAINING LOSS {train_loss / len(dataset)}')
 
     #save_tcnb_graph(model, f'contrastive_save/tcnb_epoch_{epoch}.png', epoch)
-    torch.save(model.state_dict(), f'contrastive_save/contrastive_weights_epoch_{epoch}.pt')
+torch.save(model.state_dict(), f'contrastive_save/contrastive_weights_epoch_{epoch}.pt')
