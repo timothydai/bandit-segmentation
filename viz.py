@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from skimage.util import img_as_float
 from sklearn.manifold import TSNE
+from sklearn.decomposition import PCA
 import torch
 
 def save_img_mask_pair(img, pred, mask, accuracy, save_path):
@@ -34,31 +35,37 @@ def save_tcnb_graph(model, save_path, epoch):
     plt.rcParams.update({
         "text.usetex": True,
     })
+    path, img, mask = dataset[4]
 
-    img = img_as_float(dataset[4][1])
+    img = img_as_float(img)
     img = torch.from_numpy(img).permute(2, 0, 1)  # C, H, W
     img = img.float().to(device)
-    embeddings = model(img)
-    embeddings = embeddings.permute(1, 2, 0)  # H, W, C
-    embeddings = embeddings.view(embeddings.shape[0] * embeddings.shape[1], -1)  # H * W, C
-    embeddings = embeddings.cpu().detach().numpy()
     
-    random_is = np.random.choice(embeddings.shape[0], 3000)
-    print(random_is)
+    mask = torch.from_numpy(mask)  # H, W
 
-    tsne = TSNE(n_components=2, verbose=1)
-    tsne_results = tsne.fit_transform(embeddings[random_is])
-    labels = dataset[4][2].reshape(-1)[random_is]
+    embeddings = model(img)
+    embeddings = embeddings.flatten(1, -1)
+    y = mask.flatten()
 
-    tsne_pos = tsne_results[labels==1]
-    tsne_neg = tsne_results[labels==0]
+    pos = embeddings[..., y==1]
+    neg = embeddings[..., y==0]
+    
+    num_pts_per_class = 1500
+    random_is = np.random.choice(embeddings.shape[1], num_pts_per_class)
+
+    # pca = PCA(n_components=8)
+    pos = pos.permute(1, 0)
+    neg = neg.permute(1, 0)
+    to_plot = torch.concat([pos[random_is], neg[random_is]], axis=0)
+
+    tsne = TSNE(n_components=2, verbose=1, perplexity=50)
+    tsne_results = tsne.fit_transform(to_plot.cpu().detach().numpy())
 
     colors = plt.get_cmap('viridis')(np.linspace(0, 1, 10))
     plt.figure(figsize=(6, 4))
-    plt.scatter(x=tsne_pos[:, 0], y=tsne_pos[:, 1], marker='x', color=colors[0], label='Foreground')
-    plt.scatter(x=tsne_neg[:, 0], y=tsne_neg[:, 1], marker='x', color=colors[8], label='Background')
+    plt.scatter(x=tsne_results[:num_pts_per_class, 0], y=tsne_results[:num_pts_per_class, 1], marker='x', color=colors[0], label='Foreground')
+    plt.scatter(x=tsne_results[num_pts_per_class:, 0], y=tsne_results[num_pts_per_class:, 1], marker='x', color=colors[8], label='Background')
     plt.legend()
     plt.title(f'Epoch {epoch + 1}')
     plt.tight_layout()
     plt.savefig(save_path, dpi=300)
-

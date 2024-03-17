@@ -46,34 +46,29 @@ class Dataset(torch.utils.data.Dataset):
 
 class ContrastiveLoss(nn.Module):
     def forward(self, x, y):
-        # sample_size = 64
-        # for class_label in [0, 1]:
-        #     P = x[:, y[0]==class_label]
-        #     P_i = P[:, np.random.choice(len(P), size=sample_size+1)]
-        #     N = x[:, y[0]==(1 - class_label)]
-        #     N_i = N[:, np.random.choice(len(N), size=sample_size)]
-        x = x.view(-1, x.shape[-2] * x.shape[-1])
-        y = y.view(-1, y.shape[-2] * y.shape[-1])
+        x = x.flatten(2, -1)
+        y = y.flatten()
 
-        pos = x[:, y[0]==1]
-        num_half_pos = len(pos[0]) // 2
-        pos1 = pos[:, :num_half_pos].T
-        pos2 = pos[:, num_half_pos:num_half_pos * 2].T
-        pos_sim = pos1.unsqueeze(1) @ pos2.unsqueeze(-1)
+        pos = x[..., y==1]
+        num_half_pos = pos.shape[-1] // 2
+        pos1 = pos[..., :num_half_pos].permute(0, 2, 1).unsqueeze(2)
+        pos2 = pos[..., num_half_pos:num_half_pos * 2].permute(0, 2, 1).unsqueeze(3)
+        pos_sim = pos1 @ pos2
 
-        neg = x[:, y[0]==0]
-        num_half_neg = len(neg[0]) // 2
-        neg1 = neg[:, :num_half_neg].T
-        neg2 = neg[:, num_half_neg:num_half_neg * 2].T
-        neg_sim = neg1.unsqueeze(1) @ neg2.unsqueeze(-1)
+        neg = x[..., y==0]
+        num_half_neg = neg.shape[-1] // 2
+        neg1 = neg[..., :num_half_neg].permute(0, 2, 1).unsqueeze(2)
+        neg2 = neg[..., num_half_neg:num_half_neg * 2].permute(0, 2, 1).unsqueeze(3)
+        neg_sim = neg1 @ neg2
 
         num_half_min = min(num_half_pos, num_half_neg)
-        pos1 = pos[:, :num_half_min].T
-        pos2 = pos[:, num_half_min:num_half_min * 2].T
-        neg1 = neg[:, :num_half_min].T
-        neg2 = neg[:, num_half_min:num_half_min * 2].T
-        pos_neg_sim1 = pos1.unsqueeze(1) @ neg1.unsqueeze(-1)
-        pos_neg_sim2 = pos2.unsqueeze(1) @ neg2.unsqueeze(-1)
+        pos1 = pos[..., :num_half_min].permute(0, 2, 1).unsqueeze(2)
+        pos2 = pos[..., num_half_min:num_half_min * 2].permute(0, 2, 1).unsqueeze(2)
+        neg1 = neg[..., :num_half_min].permute(0, 2, 1).unsqueeze(3)
+        neg2 = neg[..., num_half_min:num_half_min * 2].permute(0, 2, 1).unsqueeze(3)
+
+        pos_neg_sim1 = pos1 @ neg1
+        pos_neg_sim2 = pos2 @ neg2
 
         loss = (
             -pos_sim.mean()
@@ -81,7 +76,6 @@ class ContrastiveLoss(nn.Module):
             + torch.log(torch.exp(pos_neg_sim1).mean())
             + torch.log(torch.exp(pos_neg_sim2).mean())
         )
-        # print(loss)
         return loss
 
 
@@ -108,9 +102,10 @@ dataset = Dataset()
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
 model = Model().to(device)
 loss_fn = ContrastiveLoss()  # nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
-for epoch in range(300):
+save_tcnb_graph(model, f'contrastive_save/tcnb_before_training.png', -1)
+for epoch in range(30):
     train_loss = 0
     print(f'STARTING EPOCH {epoch+1}')
     pbar = tqdm(dataloader)
@@ -129,7 +124,7 @@ for epoch in range(300):
         loss.backward()
         optimizer.step()
         pbar.set_postfix_str(f'Train loss: {loss.detach().item()}')
-    #print(f'EPOCH TRAINING LOSS {train_loss / len(dataset)}')
+    print(f'EPOCH TRAINING LOSS {train_loss / len(dataset)}')
 
-    #save_tcnb_graph(model, f'contrastive_save/tcnb_epoch_{epoch}.png', epoch)
-torch.save(model.state_dict(), f'contrastive_save/contrastive_weights_epoch_{epoch}.pt')
+    torch.save(model.state_dict(), f'contrastive_save/contrastive_weights_epoch_{epoch}.pt')
+    save_tcnb_graph(model, f'contrastive_save/tcnb_epoch_{epoch}.png', epoch)
