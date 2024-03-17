@@ -8,8 +8,6 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision.models import ResNet50_Weights
 
-from viz import *
-
 
 if torch.backends.mps.is_available():
     print('USING MPS')
@@ -102,55 +100,53 @@ class Model(nn.Module):
         x = self.deconv2(x)
         return x
 
-train_dataset = Dataset(split='train')
-val_dataset = Dataset(split='val')
-train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True)
-val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=True)
+if __name__ == '__main__':
+    train_dataset = Dataset(split='train')
+    val_dataset = Dataset(split='val')
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True)
+    val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=True)
 
-model = Model().to(device)
-loss_fn = ContrastiveLoss()  # nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.0001)
+    model = Model().to(device)
+    loss_fn = ContrastiveLoss()  # nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
-save_tcnb_graph(model, f'contrastive_save/tcnb_before_training.png', -1)
-best_val_loss = np.inf
-for epoch in range(100):
-    train_loss = 0
-    print(f'STARTING EPOCH {epoch+1}')
-    train_pbar = tqdm(train_dataloader)
-    val_pbar = tqdm(val_dataloader)
-    model.train()
-    for i, (inputs, labels) in enumerate(train_pbar):
-        name = inputs[0]
-        inputs = inputs[1]
-        inputs = inputs.to(device)
-        labels = labels.to(device)
-        optimizer.zero_grad()
-        outputs = model(inputs)
-        loss = loss_fn(outputs, labels)
-        if loss.isnan():
-            print(name)
-            assert False
-        train_loss += loss.detach().item()
-        loss.backward()
-        optimizer.step()
-        train_pbar.set_postfix_str(f'Train loss: {loss.detach().item()}')
-    print(f'EPOCH TRAINING LOSS {train_loss / len(train_dataset)},')
-    torch.save(model.state_dict(), f'contrastive_save/contrastive_weights_epoch_{epoch}.pt')
-    save_tcnb_graph(model, f'contrastive_save/tcnb_epoch_{epoch}.png', epoch)
-
-    val_loss = 0
-    with torch.no_grad():
-        model.eval()
-        for i, (inputs, labels) in enumerate(val_pbar):
+    best_val_loss = np.inf
+    for epoch in range(100):
+        train_loss = 0
+        print(f'STARTING EPOCH {epoch+1}')
+        train_pbar = tqdm(train_dataloader)
+        val_pbar = tqdm(val_dataloader)
+        model.train()
+        for i, (inputs, labels) in enumerate(train_pbar):
             name = inputs[0]
             inputs = inputs[1]
             inputs = inputs.to(device)
             labels = labels.to(device)
+            optimizer.zero_grad()
             outputs = model(inputs)
             loss = loss_fn(outputs, labels)
-            val_loss += loss.detach().item()
-    print(f'EPOCH EVAL LOSS {val_loss / len(val_dataset)},')
-    if val_loss < best_val_loss:
-        torch.save(model.state_dict(), f'contrastive_save/contrastive_weights_best.pt')
-        save_tcnb_graph(model, f'contrastive_save/tcnb_best.png', epoch)
-        best_val_loss = val_loss
+            if loss.isnan():
+                print(name)
+                assert False
+            train_loss += loss.detach().item()
+            loss.backward()
+            optimizer.step()
+            train_pbar.set_postfix_str(f'Train loss: {loss.detach().item()}')
+        print(f'EPOCH TRAINING LOSS {train_loss / len(train_dataset)},')
+        torch.save(model.state_dict(), f'contrastive_save/contrastive_weights_epoch_{epoch}.pt')
+
+        val_loss = 0
+        with torch.no_grad():
+            model.eval()
+            for i, (inputs, labels) in enumerate(val_pbar):
+                name = inputs[0]
+                inputs = inputs[1]
+                inputs = inputs.to(device)
+                labels = labels.to(device)
+                outputs = model(inputs)
+                loss = loss_fn(outputs, labels)
+                val_loss += loss.detach().item()
+        print(f'EPOCH EVAL LOSS {val_loss / len(val_dataset)},')
+        if val_loss < best_val_loss:
+            torch.save(model.state_dict(), f'contrastive_save/contrastive_weights_best.pt')
+            best_val_loss = val_loss

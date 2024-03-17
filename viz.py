@@ -8,6 +8,8 @@ from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
 import torch
 
+from deep import *
+
 def save_img_mask_pair(img, pred, mask, accuracy, save_path):
     f, ax = plt.subplots(1, 3, figsize=(15, 5))
     ax[0].imshow(img)
@@ -31,6 +33,7 @@ def save_tcnb_graph(model, save_path, epoch):
         device = torch.device('cpu')
     with open('dataset.pkl', 'rb') as f:
         dataset = pickle.load(f)
+    model = model.to(device)
     
     path, img, mask = dataset[4]
 
@@ -47,15 +50,16 @@ def save_tcnb_graph(model, save_path, epoch):
     pos = embeddings[..., y==1]
     neg = embeddings[..., y==0]
     
-    num_pts_per_class = 1500
+    num_pts_per_class = 500
     random_is = np.random.choice(min(pos.shape[-1], neg.shape[-1]), num_pts_per_class)
 
-    # pca = PCA(n_components=8)
     pos = pos.permute(1, 0).cpu().detach().numpy()
     neg = neg.permute(1, 0).cpu().detach().numpy()
     to_plot = np.concatenate([pos[random_is], neg[random_is]], axis=0)
 
-    tsne = TSNE(n_components=2, verbose=1, perplexity=50)
+    pca = PCA(n_components=8)
+    tsne = TSNE(n_components=2, verbose=1, perplexity=50, metric='cosine', n_iter=15000)
+    # to_plot = pca.fit_transform(to_plot)
     tsne_results = tsne.fit_transform(to_plot)
 
     colors = plt.get_cmap('viridis')(np.linspace(0, 1, 10))
@@ -66,3 +70,8 @@ def save_tcnb_graph(model, save_path, epoch):
     plt.title(f'Epoch {epoch + 1}')
     plt.tight_layout()
     plt.savefig(save_path, dpi=300)
+
+if __name__ == '__main__':
+    model = Model()
+    # model.load_state_dict(torch.load('./contrastive_save/contrastive_weights_best.pt', map_location=torch.device('cpu')))
+    save_tcnb_graph(model, 'test0', -2)

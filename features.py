@@ -3,7 +3,7 @@ from skimage.util import img_as_float
 import torch
 import torch.nn.functional as F
 from torchvision.models.segmentation import fcn_resnet50, FCN_ResNet50_Weights
-
+from sklearn.decomposition import PCA
 
 def color_features(img):
     H, W, C = img.shape
@@ -96,18 +96,20 @@ def filters_33_color_pos(img):
     return np.concatenate([color_pos, convolved], axis=1)
 
 
-# def deep_pretrained(img):
-#     weights = FCN_ResNet50_Weights.DEFAULT
-#     model = fcn_resnet50(weights=weights, num_classes=64)
-#     model.eval()
+def deep_pretrained(img):
+    weights = FCN_ResNet50_Weights.DEFAULT
+    model = fcn_resnet50(weights=weights, num_classes=21)
+    model.eval()
 
-#     preprocess = weights.transforms()
-#     batch = preprocess(torch.from_numpy(img).permute(2, 0, 1)).unsqueeze(0)  # C, H, W
-#     prediction = model.backbone(batch)["out"]
-#     out = F.interpolate(prediction, size=img.shape[:2], mode="bilinear", align_corners=False)
-#     # out = torch.to_numpy(out.squeeze().permute(1, 2, 0).reshape(img.shape[0] * img.shape[1], -1))  # H, W, C; H * W, C
-#     out = out.squeeze().permute(1, 2, 0).reshape(img.shape[0] * img.shape[1], -1).detach().numpy()  # H, W, C; H * W, C
-#     return out
+    preprocess = weights.transforms()
+    batch = preprocess(torch.from_numpy(img).permute(2, 0, 1)).unsqueeze(0)  # C, H, W
+    prediction = model.backbone(batch)["out"]
+    out = F.interpolate(prediction, size=img.shape[:2], mode="bilinear", align_corners=False)
+    # out = torch.to_numpy(out.squeeze().permute(1, 2, 0).reshape(img.shape[0] * img.shape[1], -1))  # H, W, C; H * W, C
+    out = out.squeeze().permute(1, 2, 0).reshape(img.shape[0] * img.shape[1], -1).detach().numpy()  # H, W, C; H * W, C
+    pca = PCA(n_components=64)
+    out = pca.fit_transform(out)
+    return out
 
 
 def deep_contrastive_color_pos(img):

@@ -56,9 +56,9 @@ def main(args):
     elif args.feature_fn == 'filters_color_pos':
         feature_fn = filters_33_color_pos
         d = 24
-    # elif args.feature_fn == 'deep':
-    #     feature_fn = deep_pretrained
-    #     d = 64
+    elif args.feature_fn == 'pretrained':
+        feature_fn = deep_pretrained
+        d = 64
 
     # print(dataset[-1][0])
     # assert False
