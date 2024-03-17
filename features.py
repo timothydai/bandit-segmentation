@@ -5,6 +5,8 @@ import torch.nn.functional as F
 from torchvision.models.segmentation import fcn_resnet50, FCN_ResNet50_Weights
 from sklearn.decomposition import PCA
 
+from deep import *
+
 def color_features(img):
     H, W, C = img.shape
     img = img_as_float(img)
@@ -112,5 +114,24 @@ def deep_pretrained(img):
     return out
 
 
-def deep_contrastive_color_pos(img):
-    pass
+def deep_contrastive(img):
+    if torch.backends.mps.is_available():
+        print('USING MPS')
+        device = torch.device('mps')
+    elif torch.cuda.is_available():
+        print('USING CUDA')
+        device = torch.device('cuda')
+    else:
+        print('USING CPU')
+        device = torch.device('cpu')
+
+    model = BigModelUpsample()
+    model.load_state_dict(torch.load('./contrastive_save/contrastive_weights_best.pt', map_location=torch.device('cpu')))
+    model = model.to(device)
+
+    img = img_as_float(img)
+    img = torch.from_numpy(img).permute(2, 0, 1)  # C, H, W
+    img = img.float().to(device)
+    embeddings = model(img.unsqueeze(0))
+    embeddings = embeddings.squeeze(0).flatten(1, -1).permute(1, 0).cpu().detach().numpy()
+    return embeddings
