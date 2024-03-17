@@ -23,13 +23,17 @@ else:
 
 
 class Dataset(torch.utils.data.Dataset):
-    def __init__(self):
+    def __init__(self, split='train'):
         with open('dataset.pkl', 'rb') as f:
             dataset = pickle.load(f)
         self.dataset = dataset[300:]
         # Remove problematic images (unknown reason)
         self.dataset = list(filter(lambda x: x[0] != '000000363942.jpg', self.dataset))
         assert len(self.dataset) == 1424
+        if split == 'train':
+            self.dataset = self.dataset[:int(len(self.dataset) * 0.7)]
+        elif split == 'val':
+            self.dataset = self.dataset[int(len(self.dataset) * 0.7):]
         # self.preprocess = ResNet50_Weights.DEFAULT.transforms()
 
     def __len__(self):
@@ -98,18 +102,24 @@ class Model(nn.Module):
         x = self.deconv2(x)
         return x
 
-dataset = Dataset()
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
+train_dataset = Dataset(split='train')
+val_dataset = Dataset(split='val')
+train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True)
+val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=True)
+
 model = Model().to(device)
 loss_fn = ContrastiveLoss()  # nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
 save_tcnb_graph(model, f'contrastive_save/tcnb_before_training.png', -1)
-for epoch in range(30):
+best_val_loss = np.inf
+for epoch in range(100):
     train_loss = 0
     print(f'STARTING EPOCH {epoch+1}')
-    pbar = tqdm(dataloader)
-    for i, (inputs, labels) in enumerate(pbar):
+    train_pbar = tqdm(train_dataloader)
+    val_pbar = tqdm(val_dataloader)
+    model.train()
+    for i, (inputs, labels) in enumerate(train_pbar):
         name = inputs[0]
         inputs = inputs[1]
         inputs = inputs.to(device)
@@ -123,8 +133,24 @@ for epoch in range(30):
         train_loss += loss.detach().item()
         loss.backward()
         optimizer.step()
-        pbar.set_postfix_str(f'Train loss: {loss.detach().item()}')
-    print(f'EPOCH TRAINING LOSS {train_loss / len(dataset)}')
-
+        train_pbar.set_postfix_str(f'Train loss: {loss.detach().item()}')
+    print(f'EPOCH TRAINING LOSS {train_loss / len(train_dataset)},')
     torch.save(model.state_dict(), f'contrastive_save/contrastive_weights_epoch_{epoch}.pt')
     save_tcnb_graph(model, f'contrastive_save/tcnb_epoch_{epoch}.png', epoch)
+
+    val_loss = 0
+    with torch.no_grad():
+        model.eval()
+        for i, (inputs, labels) in enumerate(val_pbar):
+            name = inputs[0]
+            inputs = inputs[1]
+            inputs = inputs.to(device)
+            labels = labels.to(device)
+            outputs = model(inputs)
+            loss = loss_fn(outputs, labels)
+            val_loss += loss.detach().item()
+    print(f'EPOCH EVAL LOSS {val_loss / len(val_dataset)},')
+    if val_loss < best_val_loss:
+        torch.save(model.state_dict(), f'contrastive_save/contrastive_weights_best.pt')
+        save_tcnb_graph(model, f'contrastive_save/tcnb_best.png', epoch)
+        best_val_loss = val_loss
