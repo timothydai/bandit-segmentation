@@ -23,9 +23,9 @@ else:
 
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, split='train'):
-        with open('dataset.pkl', 'rb') as f:
+        with open('dataset_new.pkl', 'rb') as f:
             dataset = pickle.load(f)
-        self.dataset = dataset[150:]
+        self.dataset = dataset[5000:]
         # Remove problematic images (unknown reason)
         self.dataset = list(filter(lambda x: x[0] != '000000363942.jpg', self.dataset))
         if split == 'train':
