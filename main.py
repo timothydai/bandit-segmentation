@@ -44,36 +44,48 @@ def main(args):
         feature_fn = deep_contrastive
         d = 64
 
-    pd.DataFrame({'img_index': [], 'method': [], 'test_acc': [], 'time': []}).to_csv(os.path.join(results_dir, 'results.csv'), index=False)
+    pd.DataFrame({
+        'img_index': [],
+        'img_path': [],
+        'method': [],
+        #'pixel_order': [],
+        'preds': [],
+        'time': [],
+    }).to_csv(os.path.join(results_dir, 'results.csv'), index=False)
     for i in range(len(dataset)):
         img_path, img, gt_mask = dataset[i]
 
-        begin = time.time()
-        logreg_pred, test_acc = logistic_reg(
-            img=img,
-            features=feature_fn(img),
-            gt_mask=gt_mask,
-            shuffle_pixels=args.shuffle_pixels,
-        )
-        # save_img_mask_pair(img, logreg_pred, gt_mask, os.path.join(results_dir, f'{i}_logreg_viz.png'))
-        pd.DataFrame(
-            {'img_index': [i], 'method': ['logreg'], 'test_acc': [test_acc], 'time': [time.time() - begin]}
-        ).to_csv(os.path.join(results_dir, 'results.csv'), index=False, mode='a', header=False)
+        #begin = time.time()
+        #logreg_pred, test_acc = logistic_reg(
+        #    img=img,
+        #    features=feature_fn(img),
+        #    gt_mask=gt_mask,
+        #    shuffle_pixels=args.shuffle_pixels,
+        #)
+        ## save_img_mask_pair(img, logreg_pred, gt_mask, os.path.join(results_dir, f'{i}_logreg_viz.png'))
+        #pd.DataFrame(
+        #    {'img_index': [i], 'method': ['logreg'], 'test_acc': [test_acc], 'time': [time.time() - begin]}
+        #).to_csv(os.path.join(results_dir, 'results.csv'), index=False, mode='a', header=False)
         
         begin = time.time()
-        sgd_pred, test_acc = sgd_classifier(
+        sgd_pred, pixel_order = sgd_classifier(
             img=img,
             features=feature_fn(img),
             gt_mask=gt_mask,
             shuffle_pixels=args.shuffle_pixels,
         )
         # save_img_mask_pair(img, sgd_pred, gt_mask, os.path.join(results_dir, f'{i}_sgd_viz.png'))
-        pd.DataFrame(
-            {'img_index': [i], 'method': ['sgd'], 'test_acc': [test_acc], 'time': [time.time() - begin]}
-        ).to_csv(os.path.join(results_dir, 'results.csv'), index=False, mode='a', header=False)
+        pd.DataFrame({
+            'img_index': [i],
+            'img_path': [img_path],
+            'method': ['sgd'],
+            'predictions': [str(sgd_pred.tolist())],
+            #'pixel_order': [str(pixel_order.tolist())],
+            'time': [time.time() - begin]
+        }).to_csv(os.path.join(results_dir, 'results.csv'), index=False, mode='a', header=False)
 
         begin = time.time()
-        linucb_pred, test_acc = linucb_lite(
+        linucb_pred, pixel_order = linucb_lite(
             img=img,
             features=feature_fn(img),
             gt_mask=gt_mask,
@@ -81,9 +93,14 @@ def main(args):
             shuffle_pixels=args.shuffle_pixels,
         )
         # save_img_mask_pair(img, linucb_pred, gt_mask, os.path.join(results_dir, f'{i}_linucb_viz.png'))
-        pd.DataFrame(
-            {'img_index': [i], 'method': ['linucb'], 'test_acc': [test_acc], 'time': [time.time() - begin]}
-        ).to_csv(os.path.join(results_dir, 'results.csv'), index=False, mode='a', header=False)
+        pd.DataFrame({
+            'img_index': [i],
+            'img_path': [img_path],
+            'method': ['linucb'],
+            'predictions': [str(linucb_pred.tolist())],
+            #'pixel_order': [str(pixel_order.tolist())],
+            'time': [time.time() - begin]
+        }).to_csv(os.path.join(results_dir, 'results.csv'), index=False, mode='a', header=False)
 
     
 if __name__ == '__main__':
