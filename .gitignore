@@ -6,6 +6,7 @@ dataset.pkl
 dataset_new.pkl
 slurm*.out
 old_experiments
+embeddings/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

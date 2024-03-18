@@ -68,6 +68,7 @@ def main(args):
 
     pd.DataFrame({
         't': [],
+        'img_index': [],
         'img_path': [],
         'arm': [],
         'reward': [],
@@ -78,8 +79,11 @@ def main(args):
         'deep_acc': [],
     }).to_csv(os.path.join(results_dir, 'results.csv'), index=False)
 
-    for t in tqdm(range(len(dataset))):
-        img_path, img, gt_mask = dataset[t]
+    image_indices = list(range(len(dataset)))
+    np.random.shuffle(image_indices)
+    for t in tqdm(range(1000)):
+        image_index = image_indices[t]
+        img_path, img, gt_mask = dataset[image_index]
 
         feature_fn_accs = {
             arm: evaluate_segmentation(
@@ -91,7 +95,7 @@ def main(args):
         }
 
         # if args.algo == 'rl_context':
-        img_feature = embed_image(img, preprocess, model)
+        img_feature = np.load(f'embeddings/embedding_{image_index}.npy')  # embed_image(img, preprocess, model)
         probs = []
         for arm in arms:
             inv_A = np.linalg.inv(A_arms[arm])
@@ -110,6 +114,7 @@ def main(args):
 
         pd.DataFrame({
             't': [t],
+            'img_index': [image_index],
             'img_path': [img_path],
             'arm': [pulled_arm_name],
             'reward': [reward],
