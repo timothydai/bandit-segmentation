@@ -8,18 +8,23 @@ from sklearn.linear_model import LogisticRegression, SGDClassifier
 
 def logistic_reg(img, features, gt_mask, shuffle_pixels=False):
     gt_mask = gt_mask.reshape(-1)
+
     examples = np.arange(len(gt_mask))
     if shuffle_pixels:
         np.random.shuffle(examples)
+    
+    lr = LogisticRegression()
+
+    split_start = int(len(examples) * 0.7)
+
     train = examples[:int(len(examples) * 0.7)]
     test = examples[int(len(examples) * 0.7):]
 
-    lr = LogisticRegression()
     lr.fit(X=features[train], y=gt_mask[train])
     
     pred = lr.predict(X=features)
-    test_acc = lr.score(X=features[test], y=gt_mask[test])
-    return pred, test_acc
+    # test_acc = lr.score(X=features[test], y=gt_mask[test])
+    return pred, examples
 
 
 def sgd_classifier(img, features, gt_mask, shuffle_pixels=False):

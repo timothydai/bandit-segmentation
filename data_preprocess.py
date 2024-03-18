@@ -21,7 +21,7 @@ def get_majority_person_images_and_masks(coco_dataset, img_dir):
         assert len(img_dict) == 1
         img_dict = img_dict[0]
         size = img_dict['height'] * img_dict['width']
-        if annot_dict['area'] / size < 0.5:
+        if annot_dict['area'] / size < 0.25 or annot_dict['area'] / size > 0.75:
             continue
         
         img = np.array(Image.open(os.path.join(img_dir, img_dict['file_name'])))
@@ -36,5 +36,5 @@ def get_majority_person_images_and_masks(coco_dataset, img_dir):
 
 dataset = get_majority_person_images_and_masks(train, 'coco/images/train2017') + get_majority_person_images_and_masks(val, 'coco/images/val2017')
 print('Number of examples:', len(dataset))
-with open('dataset.pkl', 'wb') as f:
+with open('dataset_new.pkl', 'wb') as f:
     pickle.dump(dataset, f)

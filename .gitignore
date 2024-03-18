@@ -3,7 +3,9 @@ results
 .DS_Store
 coco
 dataset.pkl
+dataset_new.pkl
 slurm*.out
+old_experiments
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
