@@ -18,3 +18,9 @@ python main.py --exp_name pretrained --feature_fn pretrained
 #python main.py --exp_name filters_shuffle --feature_fn filters --shuffle_pixels 1
 #python main.py --exp_name deep_shuffle --feature_fn deep --shuffle_pixels 1
 #python main.py --exp_name pretrained_shuffle --feature_fn pretrained --shuffle_pixels 1
+
+python main.py --exp_name resnet --img_embedder resnet
+python main.py --exp_name vgg --img_embedder vgg
+python main.py --exp_name vit --img_embedder vit
+python main.py --exp_name efficientnet --img_embedder efficientnet
+python main.py --exp_name inception --img_embedder inception
