@@ -80,8 +80,9 @@ def main(args):
     }).to_csv(os.path.join(results_dir, 'results.csv'), index=False)
 
     image_indices = list(range(len(dataset)))
-    np.random.shuffle(image_indices)
-    for t in tqdm(range(1000)):
+    if args.shuffle:
+        np.random.shuffle(image_indices)
+    for t in tqdm(range(5000)):
         image_index = image_indices[t]
         img_path, img, gt_mask = dataset[image_index]
 
@@ -95,29 +96,29 @@ def main(args):
         }
 
         # if args.algo == 'rl_context':
-        img_feature = np.load(f'embeddings/embedding_{image_index}.npy')  # embed_image(img, preprocess, model)
-        probs = []
-        for arm in arms:
-            inv_A = np.linalg.inv(A_arms[arm])
-            theta = inv_A @ b_arms[arm]
-            p = theta.T @ img_feature + alpha * np.sqrt(img_feature.T @ inv_A @ img_feature)
-            probs.append(p)
-        pulled_arm = np.array(probs).argmax()
-        pulled_arm_name = list(arms.keys())[pulled_arm]
+        # img_feature = np.load(f'embeddings/embedding_{image_index}.npy')  # embed_image(img, preprocess, model)
+        # probs = []
+        # for arm in arms:
+        #     inv_A = np.linalg.inv(A_arms[arm])
+        #     theta = inv_A @ b_arms[arm]
+        #     p = theta.T @ img_feature + alpha * np.sqrt(img_feature.T @ inv_A @ img_feature)
+        #     probs.append(p)
+        # pulled_arm = np.array(probs).argmax()
+        # pulled_arm_name = list(arms.keys())[pulled_arm]
         
-        # Observe reward.
-        reward = feature_fn_accs[pulled_arm_name]
+        # # Observe reward.
+        # reward = feature_fn_accs[pulled_arm_name]
         
-        # Update weights.
-        A_arms[pulled_arm_name] = A_arms[pulled_arm_name] + np.outer(img_feature, img_feature)
-        b_arms[pulled_arm_name] = b_arms[pulled_arm_name] + reward * img_feature
+        # # Update weights.
+        # A_arms[pulled_arm_name] = A_arms[pulled_arm_name] + np.outer(img_feature, img_feature)
+        # b_arms[pulled_arm_name] = b_arms[pulled_arm_name] + reward * img_feature
 
         pd.DataFrame({
             't': [t],
             'img_index': [image_index],
             'img_path': [img_path],
-            'arm': [pulled_arm_name],
-            'reward': [reward],
+            'arm': [None],  # pulled_arm_name],
+            'reward': [None],  # reward],
             'color_acc': [feature_fn_accs['color']],
             'color_pos_acc': [feature_fn_accs['color_pos']],
             'mean_pool': [feature_fn_accs['mean_pool']],
@@ -130,6 +131,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_name', required=True)
     parser.add_argument('--img_embedder', required=True, choices=['resnet', 'vgg', 'vit', 'inception', 'efficientnet'])
+    parser.add_argument('--shuffle', default=False)
     # parser.add_argument('--algo', required=True, choices=['naive', 'best', 'majority', 'rl_context'])
     args = parser.parse_args()
     main(args)
