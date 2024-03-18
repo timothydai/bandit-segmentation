@@ -7,6 +7,18 @@ from sklearn.decomposition import PCA
 
 from deep import *
 
+
+if torch.backends.mps.is_available():
+    print('USING MPS')
+    device = torch.device('mps')
+elif torch.cuda.is_available():
+    print('USING CUDA')
+    device = torch.device('cuda')
+else:
+    print('USING CPU')
+    device = torch.device('cpu')
+
+
 def color_features(img):
     H, W, C = img.shape
     img = img_as_float(img)
@@ -115,18 +127,8 @@ def deep_pretrained(img):
 
 
 def deep_contrastive(img):
-    if torch.backends.mps.is_available():
-        print('USING MPS')
-        device = torch.device('mps')
-    elif torch.cuda.is_available():
-        print('USING CUDA')
-        device = torch.device('cuda')
-    else:
-        print('USING CPU')
-        device = torch.device('cpu')
-
     model = BigModelUpsample()
-    model.load_state_dict(torch.load('./contrastive_save/contrastive_weights_best.pt', map_location=torch.device('cpu')))
+    model.load_state_dict(torch.load('./contrastive_save_old_dataset/contrastive_weights_best.pt', map_location=torch.device('cpu')))
     model = model.to(device)
 
     img = img_as_float(img)

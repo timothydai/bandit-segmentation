@@ -3,119 +3,128 @@ import glob
 import os
 import pickle
 import time
+from tqdm import tqdm
 
 import numpy as np
 import pandas as pd
+from torchvision.models import (
+    resnet50,
+    ResNet50_Weights,
+    vit_b_16,
+    ViT_B_16_Weights,
+    vgg11,
+    VGG11_Weights,
+    inception_v3,
+    Inception_V3_Weights,
+    efficientnet_v2_s,
+    EfficientNet_V2_S_Weights
+)
 
 from algos import *
 from features import *
+from image_embedder import *
 from viz import *
 
 
 def main(args):
-    with open('dataset.pkl', 'rb') as f:
+    with open('dataset_new.pkl', 'rb') as f:
         dataset = pickle.load(f)
-    dataset = dataset[:150]
+    dataset = dataset[:5000]
     results_dir = f'results/{args.exp_name}'
     os.makedirs(results_dir, exist_ok=True)
 
-    if args.feature_fn == 'color':
-        feature_fn = color_features
-        d = 3
-    elif args.feature_fn == 'color_pos':
-        feature_fn = color_pos_features
-        d = 5
-    elif args.feature_fn == 'mean_pool':
-        feature_fn = mean_pool
-        d = 5
-    elif args.feature_fn == 'mean_pool_color_pos':
-        feature_fn = mean_pool_color_pos
-        d = 10
-    elif args.feature_fn == 'filters':
-        feature_fn = filters_33
-        d = 19
-    elif args.feature_fn == 'filters_color_pos':
-        feature_fn = filters_33_color_pos
-        d = 24
-    elif args.feature_fn == 'pretrained':
-        feature_fn = deep_pretrained
-        d = 64
-    elif args.feature_fn == 'deep':
-        feature_fn = deep_contrastive
-        d = 64
+    if args.img_embedder == 'resnet':
+        weights = ResNet50_Weights.DEFAULT
+        model = resnet50
+    elif args.img_embedder == 'vit':
+        weights = ViT_B_16_Weights.DEFAULT
+        model = vit_b_16
+    elif args.img_embedder == 'vgg':
+        weights = VGG11_Weights.DEFAULT
+        model = vgg11
+    elif args.img_embedder == 'inception':
+        weights = Inception_V3_Weights.DEFAULT
+        model = inception_v3
+    elif args.img_embedder == 'efficientnet':
+        weights = EfficientNet_V2_S_Weights.DEFAULT
+        model = efficientnet_v2_s
+
+    model = model(weights=weights).to(device)
+    model.eval()
+    preprocess = weights.transforms()
+
+    parser.add_argument('--image_embedder', required=True, choices=['resnet', 'vgg', 'vit', 'inception', 'efficientnet'])
+
+    alpha = 0.1
+    arms = {
+        'color': color_features,
+        'color_pos': color_pos_features,
+        'mean_pool': mean_pool,
+        'filters': filters_33, 
+        'deep': deep_contrastive,
+    }
+    A_arms = {arm: np.identity(1000) for arm in arms}
+    b_arms = {arm: np.zeros(1000) for arm in arms}
 
     pd.DataFrame({
-        'img_index': [],
+        't': [],
         'img_path': [],
-        'method': [],
-        #'pixel_order': [],
-        'preds': [],
-        'time': [],
+        'arm': [],
+        'reward': [],
+        'color_acc': [],
+        'color_pos_acc': [],
+        'mean_pool_acc': [],
+        'filters_acc': [],
+        'deep_acc': [],
     }).to_csv(os.path.join(results_dir, 'results.csv'), index=False)
-    for i in range(len(dataset)):
-        img_path, img, gt_mask = dataset[i]
 
-        begin = time.time()
-        logreg_pred, pixel_order = logistic_reg(
-           img=img,
-           features=feature_fn(img),
-           gt_mask=gt_mask,
-           shuffle_pixels=args.shuffle_pixels,
-        )
-        # save_img_mask_pair(img, logreg_pred, gt_mask, os.path.join(results_dir, f'{i}_logreg_viz.png'))
-        pd.DataFrame({
-            'img_index': [i],
-            'img_path': [img_path],
-            'method': ['logreg'],
-            'predictions': [str(logreg_pred.tolist())],
-            #'pixel_order': [str(pixel_order.tolist())],
-            'time': [time.time() - begin]
-        }).to_csv(os.path.join(results_dir, 'results.csv'), index=False, mode='a', header=False)
+    for t in tqdm(range(len(dataset))):
+        img_path, img, gt_mask = dataset[t]
+
+        feature_fn_accs = {
+            arm: evaluate_segmentation(
+                gt_mask, compute_segmentation(
+                    img=img, k=3, clustering_fn=kmeans_fast, feature_fn=feature_fn, scale=0.5
+                )
+            )
+            for arm, feature_fn in arms.items()
+        }
+
+        # if args.algo == 'rl_context':
+        img_feature = embed_image(img, preprocess, model)
+        probs = []
+        for arm in arms:
+            inv_A = np.linalg.inv(A_arms[arm])
+            theta = inv_A @ b_arms[arm]
+            p = theta.T @ img_feature + alpha * np.sqrt(img_feature.T @ inv_A @ img_feature)
+            probs.append(p)
+        pulled_arm = np.array(probs).argmax()
+        pulled_arm_name = list(arms.keys())[pulled_arm]
         
-        # begin = time.time()
-        # sgd_pred, pixel_order = sgd_classifier(
-        #     img=img,
-        #     features=feature_fn(img),
-        #     gt_mask=gt_mask,
-        #     shuffle_pixels=args.shuffle_pixels,
-        # )
-        # # save_img_mask_pair(img, sgd_pred, gt_mask, os.path.join(results_dir, f'{i}_sgd_viz.png'))
-        # pd.DataFrame({
-        #     'img_index': [i],
-        #     'img_path': [img_path],
-        #     'method': ['sgd'],
-        #     'predictions': [str(sgd_pred.tolist())],
-        #     #'pixel_order': [str(pixel_order.tolist())],
-        #     'time': [time.time() - begin]
-        # }).to_csv(os.path.join(results_dir, 'results.csv'), index=False, mode='a', header=False)
+        # Observe reward.
+        reward = feature_fn_accs[pulled_arm_name]
+        
+        # Update weights.
+        A_arms[pulled_arm_name] = A_arms[pulled_arm_name] + np.outer(img_feature, img_feature)
+        b_arms[pulled_arm_name] = b_arms[pulled_arm_name] + reward * img_feature
 
-        # begin = time.time()
-        # linucb_pred, pixel_order = linucb_lite(
-        #     img=img,
-        #     features=feature_fn(img),
-        #     gt_mask=gt_mask,
-        #     d=d,
-        #     shuffle_pixels=args.shuffle_pixels,
-        # )
-        # # save_img_mask_pair(img, linucb_pred, gt_mask, os.path.join(results_dir, f'{i}_linucb_viz.png'))
-        # pd.DataFrame({
-        #     'img_index': [i],
-        #     'img_path': [img_path],
-        #     'method': ['linucb'],
-        #     'predictions': [str(linucb_pred.tolist())],
-        #     #'pixel_order': [str(pixel_order.tolist())],
-        #     'time': [time.time() - begin]
-        # }).to_csv(os.path.join(results_dir, 'results.csv'), index=False, mode='a', header=False)
+        pd.DataFrame({
+            't': [t],
+            'img_path': [img_path],
+            'arm': [pulled_arm_name],
+            'reward': [reward],
+            'color_acc': [feature_fn_accs['color']],
+            'color_pos_acc': [feature_fn_accs['color_pos']],
+            'mean_pool': [feature_fn_accs['mean_pool']],
+            'filters': [feature_fn_accs['filters']],
+            'deep': [feature_fn_accs['deep']],
+        }).to_csv(os.path.join(results_dir, 'results.csv'), index=False, mode='a', header=False)
 
-    
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_name', required=True)
-    parser.add_argument(
-        '--feature_fn',
-        choices=['color', 'color_pos', 'mean_pool', 'filters', 'pretrained', 'deep'],
-        required=True
-    )
-    parser.add_argument('--shuffle_pixels', type=bool, default=False)
+    parser.add_argument('--img_embedder', required=True, choices=['resnet', 'vgg', 'vit', 'inception', 'efficientnet'])
+    # parser.add_argument('--algo', required=True, choices=['naive', 'best', 'majority', 'rl_context'])
     args = parser.parse_args()
     main(args)

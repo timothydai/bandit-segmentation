@@ -4,7 +4,170 @@ import numpy as np
 import pickle
 from tqdm import tqdm
 
+from skimage import transform
+from scipy.spatial.distance import squareform, pdist, cdist
 from sklearn.linear_model import LogisticRegression, SGDClassifier
+
+
+def kmeans_fast(features, k, num_iters=100):
+    """ Use kmeans algorithm to group features into k clusters.
+
+    This function makes use of numpy functions and broadcasting to speed up the
+    first part(cluster assignment) of kmeans algorithm.
+
+    Hints
+    - You may find cdist (imported from scipy.spatial.distance) and np.argmin useful
+
+    Args:
+        features - Array of N features vectors. Each row represents a feature
+            vector.
+        k - Number of clusters to form.
+        num_iters - Maximum number of iterations the algorithm will run.
+
+    Returns:
+        assignments - Array representing cluster assignment of each point.
+            (e.g. i-th point is assigned to cluster assignments[i])
+    """
+
+    N, D = features.shape
+
+    assert N >= k, 'Number of clusters cannot be greater than number of points'
+
+    # Randomly initalize cluster centers
+    idxs = np.random.choice(N, size=k, replace=False)
+    centers = features[idxs]
+    assignments = np.zeros(N, dtype=np.uint32)
+
+    for n in range(num_iters):
+        ### YOUR CODE HERE
+        old_assignments = assignments.copy()
+
+        assignments = np.argmin(cdist(centers, features), axis=0)
+        for i in range(k):
+            centers[i] = features[assignments == i].mean(axis=0)
+
+        if np.all(old_assignments == assignments):
+            break
+        ### END YOUR CODE
+
+    return assignments
+
+
+def compute_accuracy(mask_gt, mask):
+    """ Compute the pixel-wise accuracy of a foreground-background segmentation
+        given a ground truth segmentation.
+
+    Args:
+        mask_gt - The ground truth foreground-background segmentation. A
+            logical of size H x W where mask_gt[y, x] is 1 if and only if
+            pixel (y, x) of the original image was part of the foreground.
+        mask - The estimated foreground-background segmentation. A logical
+            array of the same size and format as mask_gt.
+
+    Returns:
+        accuracy - The fraction of pixels where mask_gt and mask agree. A
+            bigger number is better, where 1.0 indicates a perfect segmentation.
+    """
+
+    accuracy = None
+    ### YOUR CODE HERE
+    pred_fore = (mask == 1)
+    gt_fore = (mask_gt == 1)
+    pred_back = (mask == 0)
+    gt_back = (mask_gt == 0)
+
+    tp = np.logical_and(pred_fore, gt_fore).sum()
+    tn = np.logical_and(pred_back, gt_back).sum()
+    p = (mask == 1).sum()
+    n = (mask == 0).sum()
+
+    accuracy = (tp + tn) / (p + n)
+    ### END YOUR CODE
+
+    return accuracy
+
+
+def compute_segmentation(img, k,
+        clustering_fn=kmeans_fast,
+        feature_fn=None,
+        scale=0):
+    """ Compute a segmentation for an image.
+
+    First a feature vector is extracted from each pixel of an image. Next a
+    clustering algorithm is applied to the set of all feature vectors. Two
+    pixels are assigned to the same segment if and only if their feature
+    vectors are assigned to the same cluster.
+
+    Args:
+        img - An array of shape (H, W, C) to segment.
+        k - The number of segments into which the image should be split.
+        clustering_fn - The method to use for clustering. The function should
+            take an array of N points and an integer value k as input and
+            output an array of N assignments.
+        feature_fn - A function used to extract features from the image.
+        scale - (OPTIONAL) parameter giving the scale to which the image
+            should be in the range 0 < scale <= 1. Setting this argument to a
+            smaller value will increase the speed of the clustering algorithm
+            but will cause computed segments to be blockier. This setting is
+            usually not necessary for kmeans clustering, but when using HAC
+            clustering this parameter will probably need to be set to a value
+            less than 1.
+    """
+
+    assert scale <= 1 and scale >= 0, \
+        'Scale should be in the range between 0 and 1'
+
+    H, W, C = img.shape
+
+    if scale > 0:
+        # Scale down the image for faster computation.
+        img = transform.rescale(img, scale, channel_axis=2)
+
+    features = feature_fn(img)
+    assignments = clustering_fn(features, k)
+    segments = assignments.reshape((img.shape[:2]))
+
+    if scale > 0:
+        # Resize segmentation back to the image's original size
+        segments = transform.resize(segments, (H, W), preserve_range=True)
+
+        # Resizing results in non-interger values of pixels.
+        # Round pixel values to the closest interger
+        segments = np.rint(segments).astype(int)
+
+    return segments
+
+
+def evaluate_segmentation(mask_gt, segments):
+    """ Compare the estimated segmentation with the ground truth.
+
+    Note that 'mask_gt' is a binary mask, while 'segments' contain k segments.
+    This function compares each segment in 'segments' with the ground truth and
+    outputs the accuracy of the best segment.
+
+    Args:
+        mask_gt - The ground truth foreground-background segmentation. A
+            logical of size H x W where mask_gt[y, x] is 1 if and only if
+            pixel (y, x) of the original image was part of the foreground.
+        segments - An array of the same size as mask_gt. The value of a pixel
+            indicates the segment it belongs.
+
+    Returns:
+        best_accuracy - Accuracy of the best performing segment.
+            0 <= accuracy <= 1, where 1.0 indicates a perfect segmentation.
+    """
+
+    num_segments = np.max(segments) + 1
+    best_accuracy = 0
+
+    # Compare each segment in 'segments' with the ground truth
+    for i in range(num_segments):
+        mask = (segments == i).astype(int)
+        accuracy = compute_accuracy(mask_gt, mask)
+        best_accuracy = max(accuracy, best_accuracy)
+
+    return best_accuracy
+
 
 def logistic_reg(img, features, gt_mask, shuffle_pixels=False):
     gt_mask = gt_mask.reshape(-1)
