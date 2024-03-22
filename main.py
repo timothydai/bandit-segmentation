@@ -20,9 +20,9 @@ from torchvision.models import (
     EfficientNet_V2_S_Weights
 )
 
-from algos import *
 from features import *
 from image_embedder import *
+from utils import *
 from viz import *
 
 

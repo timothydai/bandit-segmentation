@@ -68,7 +68,7 @@ def save_tcnb_graph(model, save_path):
     tsne_results = tsne.fit_transform(to_plot)
 
     colors = plt.get_cmap('viridis')(np.linspace(0, 1, 10))
-    plt.figure(figsize=(6, 4))
+    plt.figure(figsize=(4, 2.5))
     plt.scatter(x=tsne_results[:num_pts_per_class, 0], y=tsne_results[:num_pts_per_class, 1], marker='x', color=colors[0], label='Foreground')
     plt.scatter(x=tsne_results[num_pts_per_class:, 0], y=tsne_results[num_pts_per_class:, 1], marker='x', color=colors[8], label='Background')
     plt.legend()

@@ -1,5 +1,4 @@
 results
-*.ipynb
 .DS_Store
 coco
 dataset.pkl
@@ -7,6 +6,7 @@ dataset_new.pkl
 slurm*.out
 old_experiments
 embeddings/
+contrastive_big_save_archive
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
